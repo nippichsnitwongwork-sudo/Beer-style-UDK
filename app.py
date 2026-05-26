@@ -51,7 +51,7 @@ def srm_to_hex(srm_range):
 # 3. ระบบเชื่อมต่อ Cloud Database ดึงข้อมูล BJCP เรดาร์
 @st.cache_data(ttl=600) # บันทึกความจำข้อมูลไว้ 10 นาทีเพื่อความรวดเร็วในการโหลดหน้าเว็บ
 def fetch_bjcp_cloud_data():
-    url = "https://raw.githubusercontent.com/nippichsnitwongwork-sudo/Beer-style-UDK/main/beer_db.json"
+    url = "https://raw.githubusercontent.com/nippichsnitwongwork-sudo/Beer-style-UDK/refs/heads/main/beer_db.json"
     try:
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
