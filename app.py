@@ -57,7 +57,7 @@ def srm_to_hex(srm_range):
 @st.cache_data(ttl=3600) # ทำการ Cache ข้อมูลไว้ 1 ชั่วโมงเพื่อไม่ให้เว็บโหลดช้า
 def fetch_bjcp_cloud_data():
     # ลิงก์ฐานข้อมูลออนไลน์โครงสร้าง BJCP 2021 TH Complete Database
-    url = "https://raw.githubusercontent.com/nippichsnitwongwork-sudo/Beer-style-UDK/main/beer_db.json"
+   url = "https://raw.githubusercontent.com/ชื่อผู้ใช้ของคุณ/Beer-style-UDK/main/beer_db.json"
     try:
         response = requests.get(url)
         if response.status_code == 200:
