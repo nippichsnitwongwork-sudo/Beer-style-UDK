@@ -1,6 +1,22 @@
-import streamlit as st
-import requests
 import json
+import requests
+import streamlit as st
+
+# เปลี่ยนคำว่า blob -> raw เพื่อให้ได้ไฟล์ JSON เพียวๆ
+raw_url = "https://github.com/nippichsnitwongwork-sudo/Beer-style-UDK/raw/main/beer_db.json"
+
+try:
+    response = requests.get(raw_url)
+    # ใส่ encoding ป้องกันภาษาไทยเพี้ยน
+    response.encoding = "utf-8"
+    beer_data = response.json()
+
+    # ทดสอบแสดงผลบน Streamlit
+    st.success("โหลดข้อมูลสำเร็จแล้ว!")
+    st.json(beer_data)  # ลองแสดงโครงสร้างข้อมูลทั้งหมดออกมาดูก่อน
+
+except Exception as e:
+    st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูล: {e}")
 
 # 1. การตั้งค่าโครงสร้างและธีมหน้าเว็บ (Craft Beer Premium Theme)
 st.set_page_config(
