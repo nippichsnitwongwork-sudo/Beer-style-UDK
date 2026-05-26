@@ -1,8 +1,8 @@
 import streamlit as st
+import requests
 import json
-import os
 
-# 1. ตั้งค่าหน้าเว็บให้เป็นแบบธีมมืดและกว้างแบบพรีเมียม (Craft Beer Hub Theme)
+# 1. ตั้งค่าหน้าเว็บให้เป็นธีม Dark Mode ระดับพรีเมียมสำหรับคราฟต์เบียร์
 st.set_page_config(
     page_title="BJCP Thai Beer Style Companion",
     page_icon="🍺",
@@ -10,26 +10,33 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# การปรับแต่งสไตล์ CSS ตกแต่ง UI เพิ่มเติม
+# การปรับแต่ง UI/CSS เสริมให้หน้าตาสวยงาม ทันสมัย ใช้งานง่าย
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
     .stApp { color: #f0f2f6; }
-    .metric-box {
-        background-color: #1f2937;
-        padding: 15px;
+    .beer-card {
+        background-color: #1e293b;
+        padding: 20px;
         border-radius: 10px;
-        border-left: 5px solid #f59e0b;
-        margin-bottom: 10px;
+        border-left: 6px solid #f59e0b;
+        margin-bottom: 20px;
+    }
+    .metric-container {
+        background-color: #0f172a;
+        padding: 10px;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid #334155;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. ฟังก์ชันช่วยแปลงค่า SRM เป็นรหัสสี Hex เพื่อแสดงผลแถบสีเบียร์เสมือนจริง
-def srm_to_color(srm_range):
+# 2. ฟังก์ชันแปลงค่า SRM (สีเบียร์) เป็นรหัสสี Hex เพื่อแสดงผลเป็นวงกลมสีเนื้อเบียร์จริง
+def srm_to_hex(srm_range):
     try:
-        # ดึงตัวเลขตัวแรกจากช่วง SRM เช่น "2 - 3" -> 2
-        srm = float(srm_range.split('-')[0].strip())
+        # ดึงตัวเลขแรกจากช่วงสี เช่น "2 - 3" -> 2
+        srm = float(str(srm_range).split('-')[0].strip())
     except:
         srm = 2
     
@@ -46,129 +53,167 @@ def srm_to_color(srm_range):
     elif srm <= 35: return "#260B04"
     else: return "#080201"
 
-# 3. โหลดฐานข้อมูล JSON
-@st.cache_data
-def load_data():
-    if os.path.exists("beer_db.json"):
-        with open("beer_db.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    return []
+# 3. ฟังก์ชันดึงข้อมูลจากฐานข้อมูล BJCP Cloud Database แบบเรียลไทม์
+@st.cache_data(ttl=3600) # ทำการ Cache ข้อมูลไว้ 1 ชั่วโมงเพื่อไม่ให้เว็บโหลดช้า
+def fetch_bjcp_cloud_data():
+    # ลิงก์ฐานข้อมูลออนไลน์โครงสร้าง BJCP 2021 TH Complete Database
+    url = "https://raw.githubusercontent.com/nippichsnitwongwork-sudo/Beer-style-UDK/main/beer_db.json"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        pass
+    
+    # Backup สำรองกรณีเน็ตเวิร์กของ Server มีปัญหา
+    return [
+        {
+            "ID": "1A", "Style": "American Light Lager", "Category": "Standard American Beer",
+            "IBU": "8 - 12", "SRM": "2 - 3", "OG": "1.028 - 1.040", "FG": "0.998 - 1.008", "ABV": "2.8 - 4.2%",
+            "Overall Impression": "เบียร์ลาเกอร์ที่มีคาร์โบเนชั่นสูง เนื้อเบียร์บางที่สุด แทบไม่มีรสชาติเด่นชัด ออกแบบมาให้ดื่มเย็นจัด",
+            "Aroma": "อโรม่าจากมอลต์ระดับต่ำมาก บางครั้งให้ความรู้สึกถึง grain", 
+            "Appearance": "สีฟางข้าวอ่อนมากจนถึงสีเหลืองอ่อน น้ำเบียร์ใสเป็นประกาย",
+            "Flavor": "รสชาติเป็นกลาง มีความคม จบแบบ dry รสหวานต่ำมาก", 
+            "Mouthfeel": "เนื้อเบียร์บางเบามาก คาร์โบเนชั่นสูงมาก", "Comments": ""
+        }
+    ]
 
-beer_db = load_data()
+# สั่งโหลดข้อมูลจากคลาวด์มาเก็บในตัวแปรระบบ
+beer_db = fetch_bjcp_cloud_data()
 
-# --- ส่วนของการจัดหน้าเว็บ (UI Setup) ---
+# --- ส่วนควบคุมหน้าตาเว็บหน้าบ้าน (UI Layout) ---
 st.title("🍺 BJCP Beer Style Companion")
-st.caption("Udomkati Brewing Academy x คนรักคราฟต์เบียร์ไทย — คู่มือสไตล์เบียร์ฉบับดิจิทัลโต้ตอบได้")
+st.markdown("#### **Udomkati Brewing Academy** — ระบบสืบค้นและวิเคราะห์คาแรคเตอร์เบียร์มาตรฐานสากล")
+st.write("---")
 
-# แบ่งหน้าเว็บออกเป็นสไลด์แท็บหลัก 3 แท็บ
-tab1, tab2, tab3 = st.tabs(["🔍 ค้นหาและเจาะลึกสไตล์", "⚖️ เปรียบเทียบสไตล์เบียร์", "📊 สรุปภาพรวมและสถิติ"])
+# ประกาศสร้างหน้าต่างแท็บสำหรับเลือกโหมดการใช้งาน
+tab1, tab2, tab3 = st.tabs(["🔍 ค้นหา & เจาะลึกโปรไฟล์เซนเซอร์รี่", "⚖️ เปรียบเทียบสไตล์แบบ Side-by-Side", "📊 สถิติภาพรวมคลังความรู้"])
 
 # ----------------------------------------------------
-# TAB 1: ค้นหาและเจาะลึกสไตล์ (Search & Sensory Explore)
+# TAB 1: ค้นหาและเจาะลึกโปรไฟล์ (Search & Sensory Explore)
 # ----------------------------------------------------
 with tab1:
-    st.subheader("ค้นหาโปรไฟล์เซนเซอร์รี่และข้อมูลเชิงเทคนิค")
+    st.markdown("### 🔍 ค้นหาสไตล์และคาแรคเตอร์")
     
-    # ตัวกรองข้อมูลบนเมนูด้านข้าง
-    st.sidebar.header("⚙️ ตัวกรองข้อมูลเบียร์")
-    search_query = st.sidebar.text_input("พิมพ์ชื่อสไตล์ / รหัสสไตล์ / คีย์เวิร์ดรสชาติ:", "")
+    # แผงควบคุมตัวกรองด้านข้าง (Sidebar)
+    st.sidebar.image("https://img.icons8.com/color/96/beer.png", width=70)
+    st.sidebar.header("🛠️ ตัวกรองขั้นสูง")
     
-    categories = ["ทั้งหมด"] + sorted(list(set([b["Category"] for b in beer_db]))) if beer_db else ["ทั้งหมด"]
-    selected_cat = st.sidebar.selectbox("เลือกหมวดหมู่กลุ่มเบียร์:", categories)
+    search_query = st.sidebar.text_input("พิมพ์รหัสสไตล์ / ชื่อ / คีย์เวิร์ดรสชาติ (เช่น 1A, IPA, คาราเมล):", "")
     
-    # กรองข้อมูล
+    # คัดแยกหมวดหมู่หลักที่มีทั้งหมดออกมาทำ Dropdown แบบไดนามิก
+    all_categories = ["ทั้งหมด"] + sorted(list(set([b["Category"] for b in beer_db])))
+    selected_category = st.sidebar.selectbox("เลือกกลุ่มหมวดหมู่หลัก (Category):", all_categories)
+    
+    # อัลกอริทึมการกรองข้อมูลอัจฉริยะ (Smart Filter)
     filtered_beers = []
     for b in beer_db:
-        match_q = (search_query.lower() in b["Style"].lower() or 
-                   search_query.lower() in b["ID"].lower() or 
-                   search_query.lower() in b["Overall Impression"].lower())
-        match_c = (selected_cat == "ทั้งหมด" or b["Category"] == selected_cat)
-        if match_q and match_c:
+        match_query = (search_query.lower() in b["Style"].lower() or 
+                       search_query.lower() in b["ID"].lower() or 
+                       search_query.lower() in b["Overall Impression"].lower() or
+                       search_query.lower() in b["Flavor"].lower())
+        
+        match_cat = (selected_category == "ทั้งหมด" or b["Category"] == selected_category)
+        
+        if match_query and match_cat:
             filtered_beers.append(b)
             
+    # แสดงผลลัพธ์
     if filtered_beers:
+        st.success(f"📋 พบข้อมูลเบียร์สไตล์ที่ตรงกับเงื่อนไขทั้งหมด {len(filtered_beers)} รายการ")
+        
         for beer in filtered_beers:
-            with st.container():
-                beer_color = srm_to_color(beer["SRM"])
-                st.markdown(f"""
-                <div style="display: flex; align-items: center; background-color: #1e293b; padding: 12px; border-radius: 8px; margin-top: 15px;">
-                    <div style="width: 25px; height: 25px; background-color: {beer_color}; border-radius: 50%; margin-right: 15px; border: 1px solid #fff;"></div>
-                    <span style="font-size: 1.2rem; font-weight: bold; color:#f3f4f6;">[{beer['ID']}] {beer['Style']}</span>
-                    <span style="margin-left: auto; font-size: 0.85rem; color:#9ca3af; background-color:#334155; padding: 4px 10px; border-radius: 12px;">{beer['Category']}</span>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # รายละเอียดข้างในสไตล์
-                col1, col2, col3, col4, col5 = st.columns(5)
-                col1.metric("ABV", beer["ABV"])
-                col2.metric("IBU (ความขม)", beer["IBU"])
-                col3.metric("SRM (สี)", beer["SRM"])
-                col4.metric("OG", beer["OG"])
-                col5.metric("FG", beer["FG"])
-                
-                # แสดง Sensory รายละเอียด
-                st.markdown(f"**📝 ความรู้สึกโดยรวม (Overall Impression):** {beer['Overall Impression']}")
-                
-                with st.expander("🔍 กางดูข้อมูลประสาทสัมผัสเชิงลึก (Aroma, Flavor, Mouthfeel, Appearance)"):
-                    st.write(f"**👃 กลิ่นอโรม่า (Aroma):** {beer['Aroma']}")
-                    st.write(f"**👀 รูปลักษณ์ภายนอก (Appearance):** {beer['Appearance']}")
-                    st.write(f"**👅 รสชาติ (Flavor):** {beer['Flavor']}")
-                    st.write(f"**🍺 สัมผัสในปาก (Mouthfeel):** {beer['Mouthfeel']}")
-                    if beer.get("Comments"):
-                        st.info(f"📌 **บันทึกเพิ่มเติม:** {beer['Comments']}")
+            beer_hex = srm_to_hex(beer["SRM"])
+            
+            # ดีไซน์แถบหัวข้อการ์ดเบียร์พร้อมแสดงวงกลมสีเนื้อเบียร์จริงตามค่า SRM
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; background-color: #1e293b; padding: 12px; border-radius: 8px; margin-top: 15px; margin-bottom: 5px;">
+                <div style="width: 24px; height: 24px; background-color: {beer_hex}; border-radius: 50%; margin-right: 15px; border: 2px solid #ffffff;"></div>
+                <span style="font-size: 1.25rem; font-weight: bold; color: #f3f4f6;">[{beer['ID']}] {beer['Style']}</span>
+                <span style="margin-left: auto; font-size: 0.85rem; color: #9ca3af; background-color: #334155; padding: 4px 12px; border-radius: 12px;">{beer['Category']}</span>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # การแบ่งคอลัมน์แสดงตัวเลขทางเทคนิค
+            c1, c2, c3, c4, c5 = st.columns(5)
+            c1.metric("ABV (แอลกอฮอล์)", beer["ABV"])
+            c2.metric("IBU (ความขม)", beer["IBU"])
+            c3.metric("SRM (ระดับสี)", beer["SRM"])
+            c4.metric("OG (ความถ่วงเริ่ม)", beer["OG"])
+            c5.metric("FG (ความถ่วงจบ)", beer["FG"])
+            
+            # แสดงข้อมูล Sensory Profile เชิงรายละเอียด
+            st.markdown(f"**🌟 ความเข้าใจโดยรวม (Overall Impression):** {beer['Overall Impression']}")
+            
+            with st.expander("📝 เปิดดูคู่มือการทดสอบชิมเชิงลึก (Aroma, Appearance, Flavor, Mouthfeel)"):
+                st.markdown(f"**👃 กลิ่นอโรม่า (Aroma):** {beer['Aroma']}")
+                st.markdown(f"**👀 รูปลักษณ์ภายนอก (Appearance):** {beer['Appearance']}")
+                st.markdown(f"**👅 รสชาติและบาลานซ์ (Flavor):** {beer['Flavor']}")
+                st.markdown(f"**🍺 สัมผัสในปากและเนื้อสัมผัส (Mouthfeel):** {beer['Mouthfeel']}")
+                if beer.get("Comments"):
+                    st.caption(f"💡 *หมายเหตุจากกรรมการสากล:* {beer['Comments']}")
+            st.write("")
     else:
-        st.warning("ไม่พบสไตล์เบียร์ที่ตรงกับเงื่อนไขการค้นหา")
+        st.warning("⚠️ ไม่พบข้อมูลที่ตรงกับคำค้นหาของคุณ ลองเปลี่ยนคีย์เวิร์ดใหม่อีกครั้ง")
 
 # ----------------------------------------------------
-# TAB 2: ระบบเปรียบเทียบสไตล์เบียร์ (Side-by-Side Comparison)
+# TAB 2: เปรียบเทียบสไตล์เบียร์ (Side-by-Side Comparison)
 # ----------------------------------------------------
 with tab2:
-    st.subheader("⚖️ ระบบเปรียบเทียบสไตล์เบียร์เชิงวิทยาศาสตร์")
-    st.write("เลือกสไตล์เบียร์ที่คุณต้องการนำมาวิเคราะห์เปรียบเทียบความแตกต่าง")
+    st.markdown("### ⚖️ ระบบเปรียบเทียบสไตล์เบียร์เชิงวิทยาศาสตร์")
+    st.write("เลือกสไตล์เบียร์ 2 ชนิดเพื่อวิเคราะห์ความแตกต่างของค่าสถิติเทคนิคและโปรไฟล์รสชาติเคียงข้างกัน")
     
     if len(beer_db) >= 2:
-        beer_names = [f"[{b['ID']}] {b['Style']}" for b in beer_db]
+        # ดึงรายชื่อเบียร์ทั้งหมดมาทำ Dropdown ตัวเลือกเปรียบเทียบ
+        beer_options = [f"[{b['ID']}] {b['Style']}" for b in beer_db]
         
-        c1, c2 = st.columns(2)
-        with c1:
-            choice_1 = st.selectbox("เลือกเบียร์สไตล์ที่ 1:", beer_names, index=0)
-            beer1 = next(b for b in beer_db if f"[{b['ID']}] {b['Style']}" == choice_1)
-        with c2:
-            choice_2 = st.selectbox("เลือกเบียร์สไตล์ที่ 2:", beer_names, index=1 if len(beer_names)>1 else 0)
-            beer2 = next(b for b in beer_db if f"[{b['ID']}] {b['Style']}" == choice_2)
+        col_select1, col_select2 = st.columns(2)
+        with col_select1:
+            beer_choice_1 = st.selectbox("เลือกสไตล์เบียร์ที่ 1:", beer_options, index=0)
+            b1_data = next(b for b in beer_db if f"[{b['ID']}] {b['Style']}" == beer_choice_1)
+        with col_select2:
+            beer_choice_2 = st.selectbox("เลือกสไตล์เบียร์ที่ 2:", beer_options, index=min(1, len(beer_options)-1))
+            b2_data = next(b for b in beer_db if f"[{b['ID']}] {b['Style']}" == beer_choice_2)
             
         st.write("---")
         
-        # ตารางเปรียบเทียบความแตกต่าง
-        comp_data = {
-            "คุณลักษณะ": ["หมวดหมู่หลัก (Category)", "ความแรงแอลกอฮอล์ (ABV)", "ระดับความขม (IBU)", "ระดับสี (SRM)", "ค่าความถ่วงจำเพาะเริ่ม (OG)", "ค่าความถ่วงจำเพาะจบ (FG)", "ความประทับใจโดยรวม (Overall)"],
-            beer1["Style"]: [beer1["Category"], beer1["ABV"], beer1["IBU"], beer1["SRM"], beer1["OG"], beer1["FG"], beer1["Overall Impression"]],
-            beer2["Style"]: [beer2["Category"], beer2["ABV"], beer2["IBU"], beer2["SRM"], beer2["OG"], beer2["FG"], beer2["Overall Impression"]]
+        # ตารางเปรียบเทียบเชิงโครงสร้างสากล
+        comparison_matrix = {
+            "เกณฑ์การเปรียบเทียบ": ["รหัสหมวดหมู่ (Category)", "ความแรงแอลกอฮอล์ (ABV)", "ระดับความขม (IBU)", "ค่าสีเนื้อเบียร์ (SRM)", "ความถ่วงจำเพาะเริ่ม (OG)", "ความถ่วงจำเพาะจบ (FG)"],
+            b1_data["Style"]: [b1_data["Category"], b1_data["ABV"], b1_data["IBU"], b1_data["SRM"], b1_data["OG"], b1_data["FG"]],
+            b2_data["Style"]: [b2_data["Category"], b2_data["ABV"], b2_data["IBU"], b2_data["SRM"], b2_data["OG"], b2_data["FG"]]
         }
-        st.table(comp_data)
+        st.table(comparison_matrix)
         
-        # เปรียบเทียบโปรไฟล์กลิ่นรสชาติ
-        col_b1, col_b2 = st.columns(2)
-        with col_b1:
-            st.markdown(f"### 👅 โปรไฟล์ของ {beer1['Style']}")
-            st.write(f"**👃 กลิ่น:** {beer1['Aroma']}")
-            st.write(f"**รสชาติ:** {beer1['Flavor']}")
-            st.write(f"**สัมผัสในปาก:** {beer1['Mouthfeel']}")
-        with col_b2:
-            st.markdown(f"### 👅 โปรไฟล์ของ {beer2['Style']}")
-            st.write(f"**👃 กลิ่น:** {beer2['Aroma']}")
-            st.write(f"**รสชาติ:** {beer2['Flavor']}")
-            st.write(f"**สัมผัสในปาก:** {beer2['Mouthfeel']}")
+        # คอลัมน์เปรียบเทียบข้อมูลเซนเซอร์รี่ (Sensory Grid)
+        grid1, grid2 = st.columns(2)
+        with grid1:
+            st.markdown(f"#### 🍺 โปรไฟล์ของ {b1_data['Style']}")
+            st.info(f"**ภาพรวม:** {b1_data['Overall Impression']}")
+            st.write(f"**👃 กลิ่นอโรม่า:** {b1_data['Aroma']}")
+            st.write(f"**รสชาติ:** {b1_data['Flavor']}")
+            st.write(f"**สัมผัสในปาก:** {b1_data['Mouthfeel']}")
+        with grid2:
+            st.markdown(f"#### 🍺 โปรไฟล์ของ {b2_data['Style']}")
+            st.info(f"**ภาพรวม:** {b2_data['Overall Impression']}")
+            st.write(f"**👃 กลิ่นอโรม่า:** {b2_data['Aroma']}")
+            st.write(f"**รสชาติ:** {b2_data['Flavor']}")
+            st.write(f"**สัมผัสในปาก:** {b2_data['Mouthfeel']}")
     else:
-        st.info("กรุณาเพิ่มข้อมูลสไตล์เบียร์ในไฟล์ข้อมูลก่อนเพื่อเปิดใช้งานระบบเปรียบเทียบ")
+        st.info("กำลังโหลดฐานข้อมูลจากระบบคลาวด์...")
 
 # ----------------------------------------------------
-# TAB 3: สรุปภาพรวมและสถิติ (Dashboard Analytics)
+# TAB 3: สถิติภาพรวมคลังความรู้ (Dashboard Analytics)
 # ----------------------------------------------------
 with tab3:
-    st.subheader("📊 ข้อมูลภาพรวมคลังความรู้ BJCP")
+    st.markdown("### 📊 ข้อมูลสถิติโครงสร้างแอปพลิเคชัน")
     if beer_db:
-        st.metric("จำนวนสไตล์เบียร์ที่พร้อมใช้งานในระบบปัจจุบัน", f"{len(beer_db)} สไตล์")
-        st.info("ระบบจัดเก็บและแยกแยะข้อมูลในรูปแบบ JSON เรียบร้อยแล้ว ทำให้สามารถขยายฐานข้อมูลในอนาคตได้อย่างไม่จำกัดโดยไม่กระทบความเร็วของหน้าเว็บแอปพลิเคชัน")
-    else:
-        st.warning("ยังไม่มีข้อมูลในคลัง")
+        total_styles = len(beer_db)
+        total_cats = len(list(set([b["Category"] for b in beer_db])))
+        
+        stat1, stat2 = st.columns(2)
+        stat1.metric("จำนวนสไตล์เบียร์ในคลังออนไลน์ปัจจุบัน", f"{total_styles} สไตล์")
+        stat2.metric("จำนวนหมวดหมู่เบียร์หลัก (Categories)", f"{total_cats} หมวดหมู่")
+        
+        st.write("---")
+        st.success("✅ โครงสร้างระบบเสร็จสมบูรณ์! หน้าเว็บนี้เชื่อมต่อกับเซิร์ฟเวอร์ฐานข้อมูลโดยตรง ทำให้ข้อมูลเป็นระเบียบ แม่นยำ และพร้อมแชร์ลิงก์ให้กลุ่มคนรักคราฟต์เบียร์เข้ามาใช้งานได้ทันที 24 ชั่วโมงครับ")
